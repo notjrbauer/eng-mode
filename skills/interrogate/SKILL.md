@@ -1,12 +1,12 @@
 ---
 name: interrogate
-description: Configurable adversarial review of a diff, design, or plan, with an auditable four-seat default spanning three intended model vendors. Use for interrogate, challenge this, stress test, or find blind spots. Not merge-gating. Never auto-apply.
+description: Configurable adversarial review of a diff, design, or plan. Use for interrogate, challenge this, stress test, or find blind spots. Not merge-gating. Never auto-apply.
 disable-model-invocation: true
 ---
 
 # Interrogate
 
-The default panel is four auditable seats intended to span three vendors. A configured roster may extend, shrink, or replace those defaults. Runtime fallbacks and dropouts may reduce either roster. The adversarial signal comes from model diversity, not assigned personas. The deliverable is a synthesized verdict. The lead applies judgment and never auto-edits.
+The default roster names four seats. Configuration, disabled agents, provider exclusions, and runtime dropouts determine the active panel. Every active seat receives the same review material. The lead applies judgment and never auto-edits.
 
 ## 1. Scope
 
@@ -37,9 +37,9 @@ Use the repository or session's configured `interrogate reviewers` list of proje
 | `panel-fable` | Anthropic Fable |
 | `panel-deepseek` | DeepSeek V4 Pro |
 
-Before the batch, resolve every configured seat. If its configured model or role is unavailable, recover it through the runtime resolver. Choose the closest available equivalent, preferring the same family and highest reasoning tier, record the substitution, and then dispatch. Treat resolver-owned `auto` or parent-inheritance as valid, not broken configuration. If no equivalent resolves, drop that seat and report it. Do not block the review or silently duplicate another seat.
+Before resolving any seat, filter the configured or default roster against `task.disabledAgents` and the operator's provider exclusions. Report disabled or excluded seats without resolving, recovering, substituting, or dispatching them. Never use a fallback to re-enable a disabled seat. Resolve only the remaining seats. If a role is unavailable, recover through the runtime resolver using permitted providers only. Prefer the same family and highest reasoning tier, and record the substitution. Treat resolver-owned `auto` or parent-inheritance as valid only when the resulting provider is permitted. If no permitted equivalent resolves, drop the seat and report it. If no seats remain, report that no review ran. Do not silently duplicate another seat or claim the full default roster.
 
-Dispatch one `task` batch with the same intent, artifact, and rubric to every resolved seat. After it settles, inspect each delivered result's `resolvedModel` and `resolvedModelIsFallback` when the runtime exposes them. Report each seat's actual resolved model and vendor. Missing metadata means vendor `unverified`. Never infer it from the nominal agent, count it toward cross-vendor agreement, or call the roster complete. A fallback is a substitution even when the nominal agent returned normally. Continue after dropouts. Pick each `task` item's `effort` for the job, per the **eng-mode** skill's Design and delegation section.
+Dispatch one `task` batch with the same intent, artifact, and rubric to every permitted resolved seat. After it settles, inspect each result's `resolvedModel` and `resolvedModelIsFallback` when exposed. Report actual models and vendors. A resolution to an excluded provider is not a valid review seat; omit its findings from synthesis and report the routing violation. Missing metadata means vendor `unverified`. Never infer a vendor from the nominal agent, count it toward cross-vendor agreement, or call the roster complete. A fallback is a substitution even when the nominal agent returned normally. Continue after dropouts. Pick each `task` item's `effort` for the job, per the **eng-mode** skill's Design and delegation section.
 
 ## 5. Synthesis and lead judgment
 
@@ -58,6 +58,6 @@ For every categorized finding, name all seats and each resolved vendor (or `unve
 
 ## Output
 
-Use these named sections in order: **Intent**, **Reviewers**, **Act on**, **Consider**, **Noted**, **Dismissed**, **Agreement map**. Under **Reviewers**, list every configured/default seat, resolved model, actual vendor, fallback or recovery, dropout status, and finding count. The four finding sections account for every parsed finding with provenance and category rationale. The agreement map separates cross-vendor consensus, same-vendor reinforcement, lone findings, and explicit disagreements. No auto-edits.
+Use these named sections in order: **Intent**, **Reviewers**, **Act on**, **Consider**, **Noted**, **Dismissed**, **Agreement map**. Under **Reviewers**, list every configured/default seat, enabled or disabled status, exclusion reason, resolved model, actual vendor, fallback or recovery, dropout status, and finding count. Disabled seats have no resolved model and zero findings. The four finding sections account for every parsed finding from permitted seats with provenance and category rationale. The agreement map separates cross-vendor consensus, same-vendor reinforcement, lone findings, and explicit disagreements. No auto-edits.
 
 The Standards + Spec review skill that `project-standards` names remains separate review. Shipping remains merge safety. Interrogate replaces neither.

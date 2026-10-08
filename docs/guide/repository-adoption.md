@@ -20,4 +20,6 @@ Every visible or operational surface needs a runnable proof path. Missing or unh
 
 Run `setup-eng-mode` and verify subagent LSP, resolved models, checkpoint, repository contracts, and task isolation assumptions. Re-run after runtime, role, or contract changes.
 
+Portable workflow copies are optional for clients without the OMP plugin. Their absence does not waive `project-standards` or `verify-project`. Check existing copies for drift and obey any prohibition against committing private `.agents` files.
+
 Prefer executable boundaries: lint for local syntax, architecture checks for dependency seams, tests for behavior, contextual rules for judgment. Require fixtures and counterexamples before adding blockers.

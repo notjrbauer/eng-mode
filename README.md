@@ -49,6 +49,10 @@ setup-eng-mode
 
 **Run `setup-eng-mode` in every repository.** It checks plugin provenance, model roles, agent chains, worktree isolation, repository standards, and verification contracts. It runs `bun --version` and `eng-github whoami` to validate Bun and GitHub token access. When `TYPESAFE_API_KEY` is available, setup installs and enables the companion [`compact-adviser`](https://github.com/kunchenguid/compact-adviser) plugin in `auto` mode. Without a key, it leaves the plugin disabled. Run `bun run compact-adviser` from this checkout to apply the same gate.
 
+Setup discovers the active extension's exact source root rather than assuming a checkout path. Portable workflow copies are optional for OMP-only repositories. Existing copies still receive drift checks; repository standards and verification contracts remain required. Do not commit private `.agents` files when repository law forbids it.
+
+`task.disabledAgents` controls the active agent and panel roster. Disabled seats require no role or fallback and stay disabled. A GPT+Opus roster without Fable or DeepSeek is valid; setup reports its actual models without claiming the full default panel. With isolation enabled and `apply: false`, review and manually integrate accepted worker patches instead of assuming automatic application.
+
 To update, run the install command again, restart OMP, and rerun `setup-eng-mode` in each repository.
 
 ## What belongs in each repository

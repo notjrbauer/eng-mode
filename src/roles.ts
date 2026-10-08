@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { parse, stringify } from "yaml";
+import { z } from "zod";
 import { type AgentName, agentModelChains, agentNames } from "./manifest.ts";
 
 export const genericRoleSources = {
@@ -35,6 +36,7 @@ export interface PrepareRolesInput {
   readonly roles: Readonly<Record<string, string>>;
   /** Current pinned panel selectors, e.g. from the workstation's existing panel agents. */
   readonly panelSelectors?: Partial<Record<PanelRoleName, string>>;
+  readonly disabledAgents?: readonly string[];
 }
 
 export interface PrepareRolesResult {
@@ -58,8 +60,9 @@ export interface RetireRolesResult {
 
 export function resolveAgentChains(
   roles: Readonly<Record<string, string>>,
+  disabledAgents: readonly string[] = [],
 ): AgentChainResolution[] {
-  return agentNames.map((agent) => {
+  return agentNames.filter((agent) => !disabledAgents.includes(agent)).map((agent) => {
     const chain = agentModelChains[agent];
     const unresolved: string[] = [];
     let primary: string | null = null;
@@ -78,6 +81,7 @@ export function resolveAgentChains(
 
 export function prepareRoles(input: PrepareRolesInput): PrepareRolesResult {
   const roles = input.roles;
+  const disabledAgents = input.disabledAgents ?? [];
   const conflicts: RoleConflict[] = [];
   const needsSelection: string[] = [];
   const invalid: string[] = [];
@@ -111,6 +115,7 @@ export function prepareRoles(input: PrepareRolesInput): PrepareRolesResult {
     stage(role, oldValid ? old : undefined);
   }
   for (const role of panelRoleNames) {
+    if (disabledAgents.includes(role.replace("_", "-"))) continue;
     stage(role, input.panelSelectors?.[role]);
   }
 
@@ -122,7 +127,7 @@ export function prepareRoles(input: PrepareRolesInput): PrepareRolesResult {
       conflicts,
       needsSelection,
       invalid,
-      agentResolution: resolveAgentChains(roles),
+      agentResolution: resolveAgentChains(roles, disabledAgents),
     };
   }
   if (needsSelection.length > 0) {
@@ -133,7 +138,7 @@ export function prepareRoles(input: PrepareRolesInput): PrepareRolesResult {
       conflicts,
       needsSelection,
       invalid,
-      agentResolution: resolveAgentChains(roles),
+      agentResolution: resolveAgentChains(roles, disabledAgents),
     };
   }
   const next = { ...roles, ...added };
@@ -144,7 +149,7 @@ export function prepareRoles(input: PrepareRolesInput): PrepareRolesResult {
     conflicts,
     needsSelection,
     invalid,
-    agentResolution: resolveAgentChains(next),
+    agentResolution: resolveAgentChains(next, disabledAgents),
   };
 }
 
@@ -183,7 +188,12 @@ interface RoleConfigDocument {
   readonly document: Record<string, unknown>;
   readonly roles: Record<string, string>;
   readonly originalText: string;
+  readonly disabledAgents: readonly string[];
 }
+
+const taskRoleSettingsSchema = z.object({
+  disabledAgents: z.array(z.string()).default([]),
+}).default({ disabledAgents: [] });
 
 function readRoleConfig(configPath: string): RoleConfigDocument {
   let originalText: string;
@@ -206,7 +216,11 @@ function readRoleConfig(configPath: string): RoleConfigDocument {
     if (typeof value !== "string") throw new Error(`modelRoles.${key} is not a string`);
     roles[key] = value;
   }
-  return { document, roles, originalText };
+  const taskSettings = taskRoleSettingsSchema.safeParse(document["task"]);
+  if (!taskSettings.success) {
+    throw new Error(`config at ${configPath} has invalid task settings; task.disabledAgents must be an array of strings`);
+  }
+  return { document, roles, originalText, disabledAgents: taskSettings.data.disabledAgents };
 }
 
 function writeRolesBack(
@@ -240,7 +254,11 @@ export function applyRoleStageToFile(
   const config = readRoleConfig(configPath);
   const write = options.write ?? ((path, text) => writeFileSync(path, text));
   if (stage === "prepare") {
-    const prepare = prepareRoles({ roles: config.roles, panelSelectors: options.panelSelectors ?? {} });
+    const prepare = prepareRoles({
+      roles: config.roles,
+      panelSelectors: options.panelSelectors ?? {},
+      disabledAgents: config.disabledAgents,
+    });
     const wrote = prepare.status === "applied" && Object.keys(prepare.added).length > 0;
     if (wrote) writeRolesBack(configPath, config, prepare.roles, write);
     return { stage, configPath, prepare, wrote };
