@@ -4,6 +4,7 @@ import { refString, type PrRef } from "./ref.ts";
 
 export interface Check {
   name: string;
+  workflowName: string | null;
   status: string;
   conclusion: string | null;
   required: boolean;
@@ -41,7 +42,12 @@ export interface Snapshot {
   behindBy: number | null;
   mergeable: string;
   mergeStateStatus: string;
+  blocking: ("conflict" | "behind")[];
   reviewDecision: string | null;
+  mergeQueue: null | {
+    state: "QUEUED" | "AWAITING_CHECKS" | "MERGEABLE" | "UNMERGEABLE" | "LOCKED";
+    position: number;
+  };
   autoMerge: null | {
     method: string;
     enabledBy: string | null;
@@ -59,6 +65,16 @@ export interface Snapshot {
   stack: null | { number: number; position: number; size: number };
   labels: string[];
   activity: Activity[];
+}
+export function blockingOf(
+  mergeable: string,
+  mergeStateStatus: string,
+): Snapshot["blocking"] {
+  const blocking: Snapshot["blocking"] = [];
+  if (mergeable === "CONFLICTING" || mergeStateStatus === "DIRTY")
+    blocking.push("conflict");
+  if (mergeStateStatus === "BEHIND") blocking.push("behind");
+  return blocking;
 }
 export function object(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
@@ -182,8 +198,17 @@ export async function reviewThreadPage(
   const connection = object(object(data.repository).pullRequest).reviewThreads;
   return { nodes: nodes(connection), cursor: nextCursor(connection) };
 }
+function mergeQueueEntry(value: unknown): Snapshot["mergeQueue"] {
+  if (value === null || value === undefined) return null;
+  const entry = object(value);
+  const state = entry.state;
+  if (state !== "QUEUED" && state !== "AWAITING_CHECKS" && state !== "MERGEABLE" && state !== "UNMERGEABLE" && state !== "LOCKED")
+    throw new ApiError(200, "Unknown merge queue entry state", state);
+  return { state, position: number(entry.position) };
+}
 function snapshotSelection(ref: PrRef): string {
-  return `stack{number size} stackEntry{position} id url number title state isDraft headRefName headRefOid baseRefName baseRefOid mergeable mergeStateStatus reviewDecision labels(first:50){nodes{name}} autoMergeRequest{mergeMethod enabledBy{login}} baseRef{target{oid} compare(headRef:${JSON.stringify(`refs/pull/${ref.number}/head`)}){behindBy}} commits(last:1){nodes{commit{oid statusCheckRollup{state contexts(first:100){nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:${ref.number}) detailsUrl databaseId checkSuite{workflowRun{databaseId}}} ... on StatusContext{context state isRequired(pullRequestNumber:${ref.number}) targetUrl}}}}}}} reviewThreads(first:100){${threadPageSelection}} latestReviews(first:20){nodes{author{login} state submittedAt body}} comments(last:100){nodes{author{login} body createdAt}}`;
+  const queue = "mergeQueueEntry{state position enqueuedAt}";
+  return `${queue} stack{number size} stackEntry{position} id url number title state isDraft headRefName headRefOid baseRefName baseRefOid mergeable mergeStateStatus reviewDecision labels(first:50){nodes{name}} autoMergeRequest{mergeMethod enabledBy{login}} baseRef{target{oid} compare(headRef:${JSON.stringify(`refs/pull/${ref.number}/head`)}){behindBy}} commits(last:1){nodes{commit{oid statusCheckRollup{state contexts(first:100){nodes{__typename ... on CheckRun{name status conclusion isRequired(pullRequestNumber:${ref.number}) detailsUrl databaseId checkSuite{workflowRun{databaseId workflow{name}}}} ... on StatusContext{context state isRequired(pullRequestNumber:${ref.number}) targetUrl}}}}}}} reviewThreads(first:100){${threadPageSelection}} latestReviews(first:20){nodes{author{login} state submittedAt body}} comments(last:100){nodes{author{login} body createdAt}}`;
 }
 function parseSnapshot(value: unknown, ref: PrRef, threadNodes: unknown[]): Snapshot {
   const v = object(value);
@@ -206,6 +231,7 @@ function parseSnapshot(value: unknown, ref: PrRef, threadNodes: unknown[]): Snap
               : object(c.checkSuite).workflowRun;
           return {
             name: text(c.name ?? c.context),
+            workflowName: run == null ? null : nullableText(object(object(run).workflow).name),
             status: text(c.status ?? c.state),
             conclusion: nullableText(c.conclusion ?? c.state),
             required: c.isRequired === true,
@@ -220,6 +246,9 @@ function parseSnapshot(value: unknown, ref: PrRef, threadNodes: unknown[]): Snap
     base?.compare === null || base?.compare === undefined
       ? null
       : object(base.compare);
+  const mergeable = text(v.mergeable);
+  const mergeStateStatus = text(v.mergeStateStatus);
+  const blocking = blockingOf(mergeable, mergeStateStatus);
   return {
     ref: refString(ref),
     url: text(v.url),
@@ -233,9 +262,11 @@ function parseSnapshot(value: unknown, ref: PrRef, threadNodes: unknown[]): Snap
     baseSha: text(v.baseRefOid),
     behindBy:
       typeof comparison?.behindBy === "number" ? comparison.behindBy : null,
-    mergeable: text(v.mergeable),
-    mergeStateStatus: text(v.mergeStateStatus),
+    mergeable,
+    mergeStateStatus,
+    blocking,
     reviewDecision: nullableText(v.reviewDecision),
+    mergeQueue: mergeQueueEntry(v.mergeQueueEntry),
     autoMerge:
       auto === null
         ? null
@@ -291,6 +322,8 @@ export interface Fingerprint {
   state: string;
   headSha: string;
   mergeable: string;
+  mergeStateStatus: string;
+  mergeQueue: Snapshot["mergeQueue"];
   checks: Record<string, number>;
   comments: { count: number; latest: string | null };
   reviews: { count: number; latest: string | null };
@@ -304,7 +337,7 @@ export async function fetchFingerprints(
   priority: Priority = "interactive",
 ): Promise<Fingerprint[]> {
   const selection =
-    "state mergeable headRefOid comments(first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{lastEditedAt updatedAt}} reviews(last:100){totalCount nodes{lastEditedAt submittedAt}} reviewThreads{totalCount} commits(last:1){nodes{commit{statusCheckRollup{contexts{checkRunCountsByState{state count} statusContextCountsByState{state count}}}}}}";
+    "mergeQueueEntry{state position} state mergeable mergeStateStatus headRefOid comments(first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{lastEditedAt updatedAt}} reviews(last:100){totalCount nodes{lastEditedAt submittedAt}} reviewThreads{totalCount} commits(last:1){nodes{commit{statusCheckRollup{contexts{checkRunCountsByState{state count} statusContextCountsByState{state count}}}}}}";
   const values = await aliased(client, refs, () => selection, priority, false);
   return values.map((raw, i) => {
     const v = object(raw);
@@ -317,7 +350,7 @@ export async function fetchFingerprints(
             (x): x is string => typeof x === "string",
           );
         })
-        .sort();
+        .sort((a, b) => Date.parse(a) - Date.parse(b));
       return { count: number(e.totalCount), latest: dates.at(-1) ?? null };
     };
     const checks: Record<string, number> = {};
@@ -343,7 +376,8 @@ export async function fetchFingerprints(
     if (!ref) throw new ApiError(200, "Missing reference", null);
     const state = text(v.state),
       headSha = text(v.headRefOid),
-      mergeable = text(v.mergeable);
+      mergeable = text(v.mergeable),
+      mergeStateStatus = text(v.mergeStateStatus);
     const comments = edits(v.comments),
       reviews = edits(v.reviews),
       threads = number(object(v.reviewThreads).totalCount);
@@ -352,6 +386,8 @@ export async function fetchFingerprints(
       state,
       headSha,
       mergeable,
+      mergeStateStatus,
+      mergeQueue: mergeQueueEntry(v.mergeQueueEntry),
       checks,
       comments,
       reviews,
@@ -360,6 +396,8 @@ export async function fetchFingerprints(
         state,
         headSha,
         mergeable,
+        mergeStateStatus,
+        mergeQueueEntry(v.mergeQueueEntry),
         Object.entries(checks).sort(),
       ]),
       remarks: JSON.stringify([comments, reviews, threads]),
