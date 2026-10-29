@@ -23,6 +23,8 @@
     "workflow-law:check": "bun src/workflow-law-check.ts",
     "sync-skills": "bun src/sync-skills.ts sync",
     "sync-skills:check": "bun src/sync-skills.ts check",
+    "roles:prepare": "bun src/roles-prepare.ts prepare",
+    "roles:retire": "bun src/roles-prepare.ts retire",
     "compact-adviser": "bun src/compact-adviser.ts",
     "test": "bun test ./src",
     "typecheck": "bunx tsgo -p tsconfig.json",
