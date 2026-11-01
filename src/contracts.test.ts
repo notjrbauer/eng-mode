@@ -117,3 +117,90 @@ describe("eng_orch contract frontmatter", () => {
     }
   });
 });
+
+describe("eng_orch missing contracts", () => {
+  async function emptyRepository(): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "eng-mode-contracts-"));
+    roots.push(root);
+    return root;
+  }
+
+  it("blocks code-producing work when project-standards is absent", async () => {
+    const repositoryRoot = await emptyRepository();
+    expect(
+      await executeEngOrch({
+        action: "contracts",
+        repositoryRoot,
+        mode: "code-producing",
+      })
+    ).toEqual({
+      decision: "blocked-standards",
+      mode: "code-producing",
+      repositoryRoot,
+      contracts: [
+        {
+          name: "project-standards",
+          expectedPath: join(repositoryRoot, ".agents", "skills", "project-standards", "SKILL.md"),
+          parse: "missing",
+        },
+        {
+          name: "verify-project",
+          expectedPath: join(repositoryRoot, ".agents", "skills", "verify-project", "SKILL.md"),
+          parse: "missing",
+        },
+      ],
+      reasons: [
+        "project-standards is absent; code-producing work stops before any edit, write, or writer delegation",
+      ],
+    });
+  });
+
+  it("lets read-only work proceed without policy claims when project-standards is absent", async () => {
+    const repositoryRoot = await emptyRepository();
+    expect(
+      await executeEngOrch({ action: "contracts", repositoryRoot, mode: "read-only" })
+    ).toMatchObject({
+      decision: "standards-unavailable-read-only",
+      mode: "read-only",
+      contracts: [{ parse: "missing" }, { parse: "missing" }],
+      reasons: [
+        "project-standards is absent; read-only work may proceed without policy-compliance claims",
+      ],
+    });
+  });
+
+  it("blocks absent project-standards even when verify-project is valid", async () => {
+    const repositoryRoot = await repository("\n");
+    await rm(join(repositoryRoot, ".agents", "skills", "project-standards"), {
+      recursive: true,
+    });
+    expect(
+      await executeEngOrch({
+        action: "contracts",
+        repositoryRoot,
+        mode: "code-producing",
+      })
+    ).toMatchObject({
+      decision: "blocked-standards",
+      contracts: [{ parse: "missing" }, { parse: "ok" }],
+    });
+  });
+
+  it("makes behavioral claims inconclusive when verify-project is absent", async () => {
+    const repositoryRoot = await repository("\n");
+    await rm(join(repositoryRoot, ".agents", "skills", "verify-project"), {
+      recursive: true,
+    });
+    for (const mode of ["read-only", "code-producing"] as const) {
+      expect(
+        await executeEngOrch({ action: "contracts", repositoryRoot, mode })
+      ).toMatchObject({
+        decision: "inconclusive-verification",
+        contracts: [{ parse: "ok" }, { parse: "missing" }],
+        reasons: [
+          "verify-project is missing; behavioral claims on the product surface are INCONCLUSIVE and browser proof is not a substitute",
+        ],
+      });
+    }
+  });
+});

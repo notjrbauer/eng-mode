@@ -1,11 +1,13 @@
 ---
 name: setup-eng-mode
-description: Validate and orchestrate an Eng Mode installation. Use for /setup-eng-mode, checking the Eng extension link, migrating model roles, auditing skill or agent shadows, or validating project contracts.
+description: Validate and orchestrate an Eng Mode installation. Use for /setup-eng-mode, checking the Eng extension link, migrating model roles, auditing skill or agent shadows, or validating and authoring project contracts.
 ---
 
 # Setup Eng Mode
 
-Setup validates the OMP installation and repository contracts. It does not install duplicate machinery. Re-running setup is idempotent.
+Setup validates the OMP installation and provisions repository contracts. It does not install duplicate machinery. Re-running setup is idempotent.
+
+A blocked step blocks only the steps that depend on it. Record the exact missing approval or prerequisite, then continue with every independent step and section. Never report a step as done, or a check as passed, without observing it.
 
 ## 1. Installation and source identity
 
@@ -40,9 +42,17 @@ Role migration is two-stage and owned by the extension's config migrator. Setup 
 
 ## 5. Project contracts
 
-1. Run `eng_orch contracts` and report the structured decision and per-contract source paths.
-2. Validate existing `project-standards` and `verify-project` contracts from canonical `.agents/skills` or the backwards-compatible `.omp/skills` fallback. Never overwrite them.
-3. After explicit repository inspection, setup may create only an `UNCONFIGURED` sentinel (`SKILL.md` whose body is the single line `UNCONFIGURED`) under canonical `.agents/skills` for an absent contract, so the gap is explicit tool output rather than silence. It never infers a verification contract from package scripts. Real contract authoring routes through `create-verification-skill` and the repository owners.
+Setup provisions both contracts. A missing contract is setup work, not a report line, and setup never substitutes an `UNCONFIGURED` sentinel for it. A sentinel is a decision only the repository owners make, by writing it themselves.
+
+A `blocked-standards` decision from a missing `project-standards` stops product-code work, not setup. Contract authoring is the one write that decision permits during setup. Setup never edits product code, and the gate stays in force for every other writer until `eng_orch contracts` returns `proceed`.
+
+1. **Observe.** Run `eng_orch contracts` in `code-producing` mode. Record the decision, each contract's `parse` state and path, and whether git tracks that path (`git ls-files --error-unmatch PATH`).
+2. **Honor what exists.** Never overwrite, move, or duplicate a contract that exists, tracked or local. A contract under the `.omp/skills` fallback stays there; a canonical `.agents/skills` copy would shadow it. Report a `malformed`, `wrong-name`, `unreadable`, or `unconfigured` contract with its path, and repair it only with approval for that exact file, since it may be tracked repository law.
+3. **Place new contracts.** Author each missing contract under canonical `.agents/skills/<name>/`. Unless repository law says these contracts are committed, they are personal and checkout-local. For each authored directory that git does not track and does not already ignore (`git check-ignore -q PATH`), append one anchored entry such as `/.agents/skills/verify-project/` to the file `git rev-parse --git-path info/exclude` prints, skipping entries already present. Never edit `.gitignore` or a global excludes file, never `git add -f`, and never commit. Owners who want tracked contracts commit them and drop the exclude entry.
+4. **Approval.** When session or repository rules gate file writes or commands, ask once before the first write. Name every path in one batch: each contract directory, its feature files, the exclude file, and any existing standards file that registration would edit. Add the commands and runtime prerequisites the `verify-project` proof needs (credentials, services, environments) to that batch only when the proof needs them. An approval never extends to cloud, production, or remote writes the operator did not name. A denied or unanswered item blocks only the step that needs it.
+5. **Author `project-standards` first,** because `verify-project` registers in it. Interview the repository, not the user: agent instructions (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules`), README and contributing docs, CI workflows, package scripts or Makefile, lint, format, and type configs, `CONTEXT.md`, and ADRs. Write `SKILL.md` with frontmatter `name: project-standards` and a `description`. Cover what the evidence supports: scope and architecture, exact dev, typecheck, lint, format, test, and build commands, test law, the pre-commit pass, stack-specific skills to read, review agents and the review skill, domain vocabulary sources and ADR convention, approval gates, and secret and production boundaries. Cite the file each rule comes from. List anything the repository does not answer under `Open questions` rather than inventing it. Record commands from evidence; claim one passes only if setup ran it under the approval gates.
+6. **Author `verify-project`** by reading `skill://create-verification-skill` and running its whole flow: interview, generate, seed the feature map, prove end to end, and register the contract in `project-standards`. If standards are still missing, registration is blocked, not a reason to restart setup. Do not register a checkout-local verification path in tracked standards; leave that decision to the owners. Never infer the contract from package scripts alone. During setup, a checkout that does not build or start is reported precisely, not fixed, because setup never edits product code. When approval, credentials, a service, or an environment prevents proof, keep the contract with an `Unproven` section naming the unexecuted steps and their prerequisites. Affected behavioral claims remain `INCONCLUSIVE` until those steps run successfully.
+7. **Validate.** Re-run `eng_orch contracts` and report the new decision. Anything other than `proceed` names the contract and parse state still at fault. `proceed` with unexecuted proof means contract present, proof blocked—not verification passed. For each checkout-local contract, confirm its exclude entry with `git check-ignore -v PATH` and confirm `git status --porcelain` does not list it. Report any authorized edits to existing contracts separately.
 
 ## 6. Runtime validation
 
@@ -57,4 +67,4 @@ Restart OMP after installing or updating the extension, then verify `eng_orch co
 
 ## 8. Report
 
-Report per-agent resolved models, contract decisions with source paths, isolation, `goal`, `loop`, Bun availability, GitHub token access and source, commit capability, and every unavailable capability. Refuse to report a capability as present without observing it.
+Report per-agent resolved models, isolation, `goal`, `loop`, Bun availability, GitHub token access and source, commit capability, and every unavailable capability. For contracts, report the decision before and after authoring, each contract's parse state, source path, and placement (tracked, checkout-local, or `.omp` fallback), every exclude entry added, and each authoring step as done or blocked with its exact missing prerequisite. Name which `verify-project` proof steps ran and which did not. Refuse to report a capability as present without observing it.

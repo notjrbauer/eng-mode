@@ -32,9 +32,9 @@ At Eng Mode entry, call the `eng_orch` tool's `contracts` action before reposito
 
 - `proceed`. Both repository-owned contract files are valid under `.agents/skills` or the backwards-compatible `.omp/skills` fallback.
 - `standards-unavailable-read-only`. Read-only investigation may proceed, but makes no policy-compliance claim.
-- `blocked-standards`. Code-producing work stops before any edit, write, or writer delegation.
-- `inconclusive-verification`. Behavioral claims on the product surface are `INCONCLUSIVE`. Never substitute OMP `browser` for an unknown or private project driver.
-- `unconfigured`. A contract is an explicit `UNCONFIGURED` sentinel. Run `setup-eng-mode`.
+- `blocked-standards`. Code-producing work stops before any edit, write, or writer delegation. When `project-standards` is missing, run `setup-eng-mode` §5 (Project contracts) to author it; that authoring is the only repository write the decision permits.
+- `inconclusive-verification`. Behavioral claims on the product surface are `INCONCLUSIVE`. Never substitute OMP `browser` for an unknown or private project driver. When `verify-project` is missing, run `setup-eng-mode` §5 (Project contracts) to author it.
+- `unconfigured`. A contract is an explicit `UNCONFIGURED` sentinel the repository owners wrote. Report it; replacing it is the owners' call.
 
 Inside T3 Code (`T3CODE_OMP_SESSION=1`), `eng-github` is off. Use `gh` directly, and register and watch every PR with T3's `t3__link_pull_request` and `t3__watch_pull_request` tools. This rule overrides `eng-github` instructions in every skill and playbook.
 
@@ -42,7 +42,7 @@ Inside T3 Code, end the body of every GitHub comment, review and review reply yo
 
 Outside T3 Code, use `eng-github` for all GitHub and PR work. Read its skill once, then run `eng-github COMMAND`. Use only commands documented by that skill. For an undocumented operation, use `eng-github api` or `eng-github graphql`; never use raw `gh`, `curl`, or another tool.
 
-The contracts decision is auditable on-disk validation, not model self-report. `setup-eng-mode` validates only the documented prerequisites. Outside Eng invocation, OMP and repository context remain authoritative.
+The contracts decision validates files on disk, not runtime behavior. `setup-eng-mode` validates prerequisites and authors missing contracts. An `Unproven` section keeps the affected behavioral claims `INCONCLUSIVE` until those steps run successfully, even when the contract parses as valid. Outside Eng invocation, OMP and repository context remain authoritative.
 
 ## Router
 

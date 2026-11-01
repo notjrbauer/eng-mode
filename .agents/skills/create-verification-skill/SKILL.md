@@ -22,7 +22,7 @@ If the checkout doesn't build or start as-is, fix that first (or report it preci
 
 ## 2. Generate the skill
 
-Write `.agents/skills/verify-project/SKILL.md` with YAML frontmatter (`name: verify-project` and a `description` that names the app, the surface, and when to reach for it). Without frontmatter the skill never registers. Include these sections, each grounded in what the interview actually found (no placeholders left):
+Write `.agents/skills/verify-project/SKILL.md` with YAML frontmatter (`name: verify-project` and a `description` that names the app, the surface, and when to reach for it). Without frontmatter the skill never registers. Never overwrite an existing contract, including one under the `.omp/skills` fallback. When repository law does not say the contract is committed, keep it checkout-local the way `setup-eng-mode` places contracts: one anchored entry in the file `git rev-parse --git-path info/exclude` prints, never `.gitignore`, `git add -f`, or a commit. Include these sections, each grounded in what the interview actually found (no placeholders left):
 
 - **Launch:** the exact command that starts the app for verification, and how to tell it's ready (a log line, a prompt). Launch must reach a usable state from an empty data dir, including any migrations and seed data. Ready means usable, not just that a process answers. A database health check can pass while its init scripts are still running. Include teardown. For a short-lived CLI or TUI there is no server to keep alive. Launch means build the binary (or install deps) once, then start each drive in its own isolated PTY or tmux session.
 - **Doctor:** one read-only check that answers "is this instance worth driving?" Process up, right version/build, port owned by us, auth valid. An agent runs this first whenever anything looks off.
@@ -37,10 +37,12 @@ Create `.agents/skills/verify-project/features/README.md` plus one file per user
 
 ## 4. Prove the generated skill before handing it over
 
-Run its own instructions end to end once: launch, doctor, drive ONE mapped feature (one is enough. The map exists so later runs can cover the rest), capture evidence, clean up. After cleanup, confirm the evidence still exists at the named location. A cleanup that eats the proof fails this step. Fix what fails, and run the generated cleanup after every failed iteration too, so broken attempts don't strand processes and ports. A generated skill that was never executed is a draft, not a deliverable.
+Run its own instructions end to end once: launch, doctor, drive ONE mapped feature (one is enough. The map exists so later runs can cover the rest), capture evidence, clean up. After cleanup, confirm the evidence still exists at the named location. A cleanup that eats the proof fails this step. Fix what fails, and run the generated cleanup after every failed iteration too, so broken attempts don't strand processes and ports. A generated skill that was never executed is a draft, not a deliverable. When a missing approval, credential, service, or environment stops a step from running, add an `Unproven` section to the skill naming each step that did not run and the exact prerequisite it needs, and report the proof as blocked, not done.
+
+Any proof depending on an `Unproven` step remains `INCONCLUSIVE` until a successful run covers it. A valid contract file is not runtime proof.
 
 If you proved it in a stand-in for the real target (a container in place of a fresh VM, a local stack in place of a remote one), list every setup step the stand-in did that the target will not. Those steps stay unverified until a run on the real target covers them.
 
 ## 5. Index it and offer the maintenance loop
 
-Register the contract in the project's `project-standards` skill so playbooks can locate it, then point the user at `/maintain-verification-skill` for keeping the map honest as the app changes. Suggest a cadence only if they ask.
+Register the contract in `project-standards` when that file exists and the edit is authorized. Do not add a checkout-local verification path to tracked standards; report registration as left to the owners. If standards are missing or the edit is not authorized, report registration as blocked and continue; never invoke setup recursively from this flow. Then point the user at `/maintain-verification-skill` for keeping the map honest as the app changes. Suggest a cadence only if they ask.

@@ -18,7 +18,7 @@ Record owner, entry points, allowed dependencies, canonical contracts, persisten
 
 Every visible or operational surface needs a runnable proof path. Missing or unhealthy surfaces return `INCONCLUSIVE`, never a proxy.
 
-Run `setup-eng-mode` and verify subagent LSP, resolved models, checkpoint, repository contracts, and task isolation assumptions. Re-run after runtime, role, or contract changes.
+Run `setup-eng-mode` and verify subagent LSP, resolved models, checkpoint, repository contracts, and task isolation assumptions. Setup authors a missing `project-standards` or `verify-project` contract from repository evidence and keeps it checkout-local unless repository law says the contracts are committed. Re-run after runtime, role, or contract changes.
 
 Portable workflow copies are optional for clients without the OMP plugin. Their absence does not waive `project-standards` or `verify-project`. Check existing copies for drift and obey any prohibition against committing private `.agents` files.
 

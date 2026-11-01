@@ -35,7 +35,7 @@ When `setup-eng-mode` has not run in this repository and it matters to the answe
 ## Get set up
 
 1. Install with `omp plugin install github:ajoslin/eng-mode`, then restart OMP.
-2. Run [`/setup-eng-mode`](../setup-eng-mode/SKILL.md) in every repository. It validates plugin provenance, model-role chains, `goal`, `loop`, worktree isolation, and that repository's `project-standards` and `verify-project` contracts. OMP agent roles own model routing.
+2. Run [`/setup-eng-mode`](../setup-eng-mode/SKILL.md) in every repository. It validates plugin provenance, model-role chains, `goal`, `loop`, worktree isolation, and that repository's `project-standards` and `verify-project` contracts, and authors either contract when it is missing. OMP agent roles own model routing.
 3. Start a real task with `/eng-mode`, a goal, and a check that can pass or fail.
 
 Installing changes nothing until the user invokes a skill. The [README](../../README.md) and [setup page](../../docs/guide/02-setup-and-health.md) have the details. Offer to word their first prompt with them, per [`references/prompting.md`](references/prompting.md).
@@ -84,7 +84,7 @@ The default answer is `/eng-mode`, which runs most of the others when its steps 
 | Vet a performance number before reporting or acting on it | the `benchmark-checklist` skill |
 | Run a large or cross-cutting change, or one to review after stepping away | [`/figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep a decision log during a run, and review it afterward | [`/show-me-your-work`](../show-me-your-work/SKILL.md) |
-| Validate the Eng install, roles, and repository contracts | [`/setup-eng-mode`](../setup-eng-mode/SKILL.md) |
+| Validate the Eng install and roles, and validate or author repository contracts | [`/setup-eng-mode`](../setup-eng-mode/SKILL.md) |
 | Copy portable skills into a host repository | [`/eng-mode-sync-skills`](../eng-mode-sync-skills/SKILL.md) |
 | Turn their own working habits into a personal mode skill | [`/automate-me`](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [`/reflect`](../reflect/SKILL.md) |
